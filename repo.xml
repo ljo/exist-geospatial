@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<meta xmlns="http://exist-db.org/xquery/repo">
+  <description>Geosptial indexing of GML 2D geometries for eXist-db.</description>
+  <author>Pierrick Brihaye</author>
+  <author>Leif-Jöran Olsson</author>
+  <website/>
+  <status>alpha</status>
+  <license>GNU-LGPLv2.1</license>
+  <copyright>true</copyright>
+  <type>library</type>
+  <target>geospatial</target>
+  <prepare>pre-install.xql</prepare>
+  <finish/>
+</meta>
