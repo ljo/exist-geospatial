@@ -1,4 +1,4 @@
-exist-geospatial
+# exist-geospatial
 ===========================
 
 Integrates geospatial indexing of GML 2D geometries through geotools and HSQLDB into eXist-db.
