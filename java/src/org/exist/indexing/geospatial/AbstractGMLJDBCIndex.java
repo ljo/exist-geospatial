@@ -1,6 +1,6 @@
 /*
  *  eXist Open Source Native XML Database
- *  Copyright (C) 2007 The eXist Project
+ *  Copyright (C) 2007-2015 The eXist-db Project
  *  http://exist-db.org
  *
  *  This program is free software; you can redistribute it and/or
@@ -22,6 +22,7 @@
  */
 package org.exist.indexing.geospatial;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -85,7 +86,7 @@ public abstract class AbstractGMLJDBCIndex extends AbstractIndex {
     }
 
     @Override
-    public void configure(BrokerPool pool, String dataDir, Element config) throws DatabaseConfigurationException {        
+    public void configure(BrokerPool pool, Path dataDir, Element config) throws DatabaseConfigurationException {        
         super.configure(pool, dataDir, config);
         try {
             checkDatabase();

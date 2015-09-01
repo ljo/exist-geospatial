@@ -1,6 +1,6 @@
 /*
  *  eXist Open Source Native XML Database
- *  Copyright (C) 2007 The eXist Project
+ *  Copyright (C) 2007-2015 The eXist-db Project
  *  http://exist-db.org
  *
  *  This program is free software; you can redistribute it and/or
@@ -19,15 +19,16 @@
  * 
  *  
  *  @author Pierrick Brihaye <pierrick.brihaye@free.fr>
+ *  @author Leif-Jöran Olsson <ljo@exist-db.org>
  */
 package org.exist.indexing.geospatial;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FilenameFilter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.DirectoryIteratorException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -62,7 +63,7 @@ public class GMLHSQLIndex extends AbstractGMLJDBCIndex implements RawBackupSuppo
     }
     
     @Override
-    public void configure(BrokerPool pool, String dataDir, Element config) throws DatabaseConfigurationException {
+    public void configure(BrokerPool pool, Path dataDir, Element config) throws DatabaseConfigurationException {
         super.configure(pool, dataDir, config);
         String param = config.getAttribute("connectionTimeout");
         if (param != null) {
@@ -112,7 +113,7 @@ public class GMLHSQLIndex extends AbstractGMLJDBCIndex implements RawBackupSuppo
                 stmt.close();
                 conn.close();
                 if (LOG.isDebugEnabled())
-                    LOG.debug("GML index: " + getDataDir() + "/" + db_file_name_prefix + " closed");
+                    LOG.debug("GML index: " + getDataDir().resolve(db_file_name_prefix).toAbsolutePath().toString() + " closed");
             }
         } catch (SQLException e) {
             throw new DBException(e.getMessage());
@@ -123,17 +124,13 @@ public class GMLHSQLIndex extends AbstractGMLJDBCIndex implements RawBackupSuppo
     
     @Override
     protected void deleteDatabase() throws DBException {
-        File directory = new File(getDataDir());
-        File[] files = directory.listFiles( 
-            new FilenameFilter() {
-                public boolean accept(File dir, String name) {
-                    return name.startsWith(db_file_name_prefix);
-                }
+        Path directory = getDataDir();
+	try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory, db_file_name_prefix + ".*")) {
+	    for (Path file : stream) {
+		Files.delete(file);
             }
-        );
-        boolean deleted = true;
-        for (int i = 0; i < files.length ; i++) {
-            deleted &= files[i].delete();
+	} catch (Exception e) {
+            LOG.warn(e.getMessage(), e);
         }
         //TODO : raise an error if deleted == false ?
     }
@@ -148,7 +145,7 @@ public class GMLHSQLIndex extends AbstractGMLJDBCIndex implements RawBackupSuppo
                 int nodeCount = stmt.executeUpdate("DELETE FROM " + GMLHSQLIndex.TABLE_NAME + ";");
                 stmt.close();
                 if (LOG.isDebugEnabled())
-                    LOG.debug("GML index: " + getDataDir() + "/" + db_file_name_prefix + ". " + nodeCount + " nodes removed");
+                    LOG.debug("GML index: " + getDataDir().resolve(db_file_name_prefix).toAbsolutePath().toString() + ". " + nodeCount + " nodes removed");
             }
         } catch (SQLException e) {
             throw new DBException(e.getMessage());
@@ -203,16 +200,16 @@ public class GMLHSQLIndex extends AbstractGMLJDBCIndex implements RawBackupSuppo
         System.setProperty("hsqldb.cache_size_scale", "12");
         System.setProperty("hsqldb.default_table_type", "cached");
         //Get a connection to the DB... and keep it
-        this.conn = DriverManager.getConnection("jdbc:hsqldb:" + getDataDir() + "/" + db_file_name_prefix /* + ";shutdown=true" */, "sa", "");
+        this.conn = DriverManager.getConnection("jdbc:hsqldb:" + getDataDir().resolve(db_file_name_prefix).toAbsolutePath().toString() /* + ";shutdown=true" */, "sa", "");
         if (LOG.isDebugEnabled())
-            LOG.debug("Connected to GML index: " + getDataDir() + "/" + db_file_name_prefix);
+            LOG.debug("Connected to GML index: " + getDataDir().resolve(db_file_name_prefix).toAbsolutePath().toString());
         ResultSet rs = null;
         try {
             rs = this.conn.getMetaData().getTables(null, null, TABLE_NAME, new String[] { "TABLE" });
             rs.last();
             if (rs.getRow() == 1) {
                 if (LOG.isDebugEnabled())
-                    LOG.debug("Opened GML index: " + getDataDir() + "/" + db_file_name_prefix);
+                    LOG.debug("Opened GML index: " + getDataDir().resolve(db_file_name_prefix).toAbsolutePath().toString());
             //Create the data structure if it doesn't exist
             } else if (rs.getRow() == 0) {
                 Statement stmt = conn.createStatement();
@@ -265,7 +262,7 @@ public class GMLHSQLIndex extends AbstractGMLJDBCIndex implements RawBackupSuppo
                 //AREA ?
                 stmt.close();
                 if (LOG.isDebugEnabled()) 
-                    LOG.debug("Created GML index: " + getDataDir() + "/" + db_file_name_prefix);
+                    LOG.debug("Created GML index: " + getDataDir().resolve(db_file_name_prefix).toAbsolutePath().toString());
             } else {
                 throw new SQLException("2 tables with the same name ?"); 
             }
@@ -275,27 +272,21 @@ public class GMLHSQLIndex extends AbstractGMLJDBCIndex implements RawBackupSuppo
         }
     }
 
-	@Override
-	public void backupToArchive(RawDataBackup backup) throws IOException {
-        File directory = new File(getDataDir());
-        File[] files = directory.listFiles( 
-            new FilenameFilter() {
-                public boolean accept(File dir, String name) {
-                    return name.startsWith(db_file_name_prefix);
-                }
-            }
-        );
-        for (File file : files) {
-			OutputStream os = backup.newEntry(file.getName());
-			InputStream is = new FileInputStream(file);
-	        byte[] buf = new byte[4096];
-	        int len;
-	        while ((len = is.read(buf)) > 0) {
-	            os.write(buf, 0, len);
-	        }
-	        is.close();
-	        backup.closeEntry();
-        }
-	}
+    @Override
+    public void backupToArchive(RawDataBackup backup) throws IOException {
 	
+	Path directory = getDataDir();
+	try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory, db_file_name_prefix + ".*")) {
+	    for (Path file : stream) {
+		String path = file.getFileName().toString();
+		try (final OutputStream os = backup.newEntry(path)) {
+		    Files.copy(getDataDir().resolve(path), os);
+		} finally {
+		    backup.closeEntry();
+		}
+	    }
+	} catch (IOException | DirectoryIteratorException die) {
+	    LOG.error("Could not read directory: " + directory.toAbsolutePath().toString());
+	}
+    }
 }
