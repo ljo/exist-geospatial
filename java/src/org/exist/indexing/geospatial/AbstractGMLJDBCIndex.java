@@ -1,6 +1,6 @@
 /*
  *  eXist Open Source Native XML Database
- *  Copyright (C) 2007-2015 The eXist-db Project
+ *  Copyright (C) 2007-2016 The eXist-db Project
  *  http://exist-db.org
  *
  *  This program is free software; you can redistribute it and/or
@@ -33,6 +33,7 @@ import org.apache.logging.log4j.Logger;
 import org.exist.indexing.AbstractIndex;
 import org.exist.indexing.IndexWorker;
 import org.exist.indexing.StreamListener;
+import org.exist.indexing.StreamListener.ReindexMode;
 import org.exist.storage.BrokerPool;
 import org.exist.storage.DBBroker;
 import org.exist.storage.btree.DBException;
@@ -114,7 +115,7 @@ public abstract class AbstractGMLJDBCIndex extends AbstractIndex {
             //Flush any pending stuff 
             worker.flush();
             //Reset state
-            worker.setDocument(null, StreamListener.UNKNOWN);
+            worker.setDocument(null, ReindexMode.UNKNOWN);
         }
         shutdownDatabase();
     }
@@ -141,7 +142,7 @@ public abstract class AbstractGMLJDBCIndex extends AbstractIndex {
             //Flush any pending stuff
             worker.flush();
             //Reset state
-            worker.setDocument(null, StreamListener.UNKNOWN);
+            worker.setDocument(null, ReindexMode.UNKNOWN);
         }
         removeIndexContent();
         shutdownDatabase();
